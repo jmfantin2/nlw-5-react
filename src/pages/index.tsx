@@ -1,7 +1,7 @@
 export default function Home() {
   return (
     <>
-    <h1>ha</h1>
+      <h1>index!</h1>
     </>
   )
 }
