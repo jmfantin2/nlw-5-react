@@ -1,4 +1,3 @@
-import { useContext } from 'react';
 import { GetStaticProps } from 'next';
 import Image from 'next/image'
 import Link from 'next/link'
@@ -7,7 +6,7 @@ import { format, parseISO } from 'date-fns';
 import ptBR from 'date-fns/locale/pt-BR';
 
 import { api } from '../services/api';
-import { PlayerContext } from '../contexts/PlayerContext';
+import { usePlayer } from '../contexts/PlayerContext';
 import { convertDurationToTimeString } from '../utils/convertDurationToTimeString';
 
 import styles from './home.module.scss';
@@ -25,18 +24,20 @@ type Episode = {
 
 type HomeProps = {
   latestEpisodes: Episode[];
-  allEpisodes: Episode[];
+  previousEpisodes: Episode[];
 }
 
-export default function Home({latestEpisodes, allEpisodes}: HomeProps) {
-  const { play } = useContext(PlayerContext);
+export default function Home({latestEpisodes, previousEpisodes}: HomeProps) {
+  const { playFromList } = usePlayer();
+
+  const episodeList = [...latestEpisodes, ...previousEpisodes];
 
   return (
     <div className={styles.homepage}>
       <section className={styles.latestEpisodes}>
         <h2>Últimos lançamentos</h2>
         <ul>
-          {latestEpisodes.map(episode => {
+          {latestEpisodes.map((episode, index) => {
             return (
               <li key={episode.id}> 
                 {/* key is useful for additions and deletions*/}
@@ -55,7 +56,7 @@ export default function Home({latestEpisodes, allEpisodes}: HomeProps) {
                   <span>{episode.publishedAt}</span>
                   <span>{episode.durationAsString}</span>
                 </div>
-                <button type="button" onClick={() => play(episode)}>
+                <button type="button" onClick={() => playFromList(episodeList, index)}>
                   <img src="/play-green.svg" alt="Tocar episódio"/>
                 </button>
               </li>
@@ -63,8 +64,8 @@ export default function Home({latestEpisodes, allEpisodes}: HomeProps) {
           })}
         </ul>
       </section>
-      <section className={styles.allEpisodes}>
-        <h2>Todos episódios</h2>
+      <section className={styles.previousEpisodes}>
+        <h2>Episódios anteriores</h2>
         <table cellSpacing={0}>
           <thead>
             <th></th>
@@ -75,7 +76,7 @@ export default function Home({latestEpisodes, allEpisodes}: HomeProps) {
             <th></th>
           </thead>
           <tbody>
-            {allEpisodes.map(episode => {
+            {previousEpisodes.map((episode, index) => {
               return(
                 <tr key={episode.id}>
                   <td style={{width: 72}}>
@@ -96,7 +97,11 @@ export default function Home({latestEpisodes, allEpisodes}: HomeProps) {
                   <td style={{width: 100}}>{episode.publishedAt}</td>
                   <td>{episode.durationAsString}</td>
                   <td>
-                    <button type="button">
+                    <button type="button" onClick={() => playFromList(episodeList, index + latestEpisodes.length)}>
+                      {/* 
+                        latestEpisodes.lenght so episodeList makes sense... 
+                        previousEpisodes alone would take latestEpisodes indexes otherwise
+                      */}
                       <img src="/play-green.svg" alt="Tocar episódio" />
                     </button>
                   </td>
@@ -137,13 +142,13 @@ export const getStaticProps: GetStaticProps = async () => {
   })
 
   const latestEpisodes = episodes.slice(0,2);
-  const allEpisodes = episodes.slice(2, episodes.length);
+  const previousEpisodes = episodes.slice(2, episodes.length);
 
   /* Make the data available at your own terms */
   return {
     props: {
       latestEpisodes,
-      allEpisodes
+      previousEpisodes
     },
     revalidate: 60 * 60 * 8 //in seconds
     // generates a new version of the page every 8 hours
