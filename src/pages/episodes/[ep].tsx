@@ -3,6 +3,7 @@ import ptBR from 'date-fns/locale/pt-BR';
 import { GetStaticPaths, GetStaticProps } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
+import {useRouter} from 'next/router';
 
 import { api } from '../../services/api';
 import { convertDurationToTimeString } from '../../utils/convertDurationToTimeString';
@@ -26,6 +27,16 @@ type EpisodeProps = {
 }
 
 export default function Episode ({episode}: EpisodeProps) {
+  /* 
+  // only needed for fallback: true
+  const router = useRouter();
+
+  if(router.isFallback) {
+    return(
+      <p>Carregando :D</p>
+    )
+  }
+  */
   return(
     <div className={styles.episode}>
       <div className={styles.thumbnailContainer}>
@@ -51,16 +62,46 @@ export default function Episode ({episode}: EpisodeProps) {
         <span>{episode.durationAsString}</span>
       </header>
 
-      <div className={styles.description} dangerouslySetInnerHTML={{ __html: episode.description }} />
+      <div 
+        className={styles.description} 
+        dangerouslySetInnerHTML={{ __html: episode.description }} 
+      />
     </div>
   )
 }
 
 export const getStaticPaths: GetStaticPaths = async () => {
-  return {
-    paths: [],
+  
+  const { data } = await api.get('episodes', {
+    params: {
+      _limit: 2,
+      _sort: 'published_at',
+      _order: 'desc'
+    }
+  })
+
+  const paths = data.map(episode => {
+    return {
+      params: {
+        ep: episode.id
+      }
+    }
+  })
+
+  return { 
+    // attention to the number of entries for the build 
+    // -> too many will take forever, which is not viable.
+    // best strategy is to add only the most popular entries (in this
+    // case, _limit: 2 episodes) and make it blocking for the remaining.
+    // -> taking the latest 2 is really clever there because they usually
+    // are the most accessed through time.
+    paths,
     fallback: 'blocking'
   }
+
+  // fallback 'blocking' and true make what is known as "incremental static regeneration"
+  // which means generating new pages as people enter them, and also data-obsolete pages,
+  // in other words, the ones that have been updated in the meantime. (in this case 24h).
 }
 
 export const getStaticProps: GetStaticProps = async (ctx) => {
